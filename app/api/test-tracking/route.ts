@@ -11,21 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if impressions table allows NULL publisher_id
-    const { data: impressionsSchema, error: impressionsError } = await supabaseAdmin
-      .rpc('check_impressions_schema')
-      .catch(async () => {
-        // If RPC doesn't exist, try a test insert
-        const testInsert = await supabaseAdmin
-          .from('impressions')
-          .insert({
-            campaign_id: '00000000-0000-0000-0000-000000000000', // Dummy UUID
-            publisher_id: null,
-            keyword: null,
-          })
-          .select()
-
-        return testInsert
-      })
+    // We'll test by trying to insert a test record
 
     // Try a test insert to check if NULL publisher_id is allowed
     const { data: testCampaigns } = await supabaseAdmin
