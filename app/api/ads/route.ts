@@ -78,16 +78,21 @@ export async function GET(request: NextRequest) {
 
     // Filter campaigns that match any of the provided keywords
     // Support partial matching: "car" matches "car", "cars", "car marketplace", etc.
+    // Also check campaign title and message for broader matching
     const matchingCampaigns = allCampaigns.filter((campaign) => {
       if (!campaign.keywords || !Array.isArray(campaign.keywords)) {
         return false
       }
 
       const campaignKeywordsLower = campaign.keywords.map((k: string) => k.toLowerCase())
+      const campaignTitleLower = (campaign.title || '').toLowerCase()
+      const campaignMessageLower = (campaign.message || '').toLowerCase()
       
       // Check if any search keyword matches any campaign keyword (exact or partial)
+      // OR if the keyword appears in the campaign title or message
       return keywords.some((searchKeyword) => {
-        return campaignKeywordsLower.some((campaignKeyword: string) => {
+        // Check campaign keywords
+        const keywordMatch = campaignKeywordsLower.some((campaignKeyword: string) => {
           // Exact match
           if (campaignKeyword === searchKeyword) {
             return true
@@ -102,10 +107,34 @@ export async function GET(request: NextRequest) {
           }
           return false
         })
+
+        if (keywordMatch) {
+          return true
+        }
+
+        // Also check if keyword appears in title or message (broader matching)
+        // This helps match "watches" with campaigns about "tissot" watches
+        if (campaignTitleLower.includes(searchKeyword) || campaignMessageLower.includes(searchKeyword)) {
+          return true
+        }
+
+        return false
       })
     })
 
+    // Debug logging (remove in production if needed)
     if (matchingCampaigns.length === 0) {
+      console.log('No matching campaigns found', {
+        searchKeywords: keywords,
+        totalCampaigns: allCampaigns.length,
+        sampleCampaign: allCampaigns[0] ? {
+          id: allCampaigns[0].id,
+          title: allCampaigns[0].title,
+          keywords: allCampaigns[0].keywords,
+          status: allCampaigns[0].status,
+          budget_remaining: allCampaigns[0].budget_remaining,
+        } : null,
+      })
       return NextResponse.json({ ads: [] })
     }
 

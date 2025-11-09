@@ -82,3 +82,4 @@
 3. Check that `advertiser_id` is a valid UUID
 
 
+

@@ -85,3 +85,4 @@ You should see a success message if everything is set up correctly.
 3. Make sure the table schema matches the migration SQL
 
 
+
