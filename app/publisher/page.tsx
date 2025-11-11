@@ -7,6 +7,8 @@ export default function PublisherPage() {
   const [publisherId, setPublisherId] = useState('')
   const [publisherName, setPublisherName] = useState('')
   const [ad, setAd] = useState<any>(null)
+  const [apiResponse, setApiResponse] = useState<any>(null)
+  const [showResponse, setShowResponse] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [creatingPublisher, setCreatingPublisher] = useState(false)
@@ -70,21 +72,27 @@ export default function PublisherPage() {
     setLoading(true)
     setError('')
     setAd(null)
+    setApiResponse(null)
+    setShowResponse(false)
 
     try {
       const response = await fetch(
         `/api/ads?keyword=${encodeURIComponent(keyword)}&publisher_id=${encodeURIComponent(publisherId)}`
       )
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const data = await response.json()
         throw new Error(data.error || 'Failed to fetch ad')
       }
 
-      const data = await response.json()
-      setAd(data.ad)
+      // Store full response and ad
+      setApiResponse(data)
+      setAd(data.ad || (data.ads && data.ads[0]) || null)
+      setShowResponse(true)
     } catch (err: any) {
       setError(err.message)
+      setApiResponse(null)
     } finally {
       setLoading(false)
     }
@@ -238,6 +246,41 @@ export default function PublisherPage() {
                 </a>
               </div>
             </div>
+          </div>
+        )}
+
+        {apiResponse && (
+          <div className="bg-[#1A1A2E]/80 backdrop-blur-xl border border-purple-500/30 rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">API Response</h2>
+              <button
+                onClick={() => setShowResponse(!showResponse)}
+                className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg transition-all text-sm font-medium"
+              >
+                {showResponse ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                    Hide
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Show
+                  </span>
+                )}
+              </button>
+            </div>
+            {showResponse && (
+              <div className="mt-4">
+                <pre className="bg-[#0F0C29]/80 border border-gray-700 rounded-lg p-4 overflow-x-auto text-sm text-gray-300 font-mono">
+                  {JSON.stringify(apiResponse, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         )}
 
