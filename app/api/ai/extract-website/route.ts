@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'X-Title': 'VivosAdNetwork',
+  },
 })
 
 export async function POST(request: NextRequest) {
@@ -26,7 +31,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Use OpenAI to analyze the website and extract information
+    // Use OpenRouter to analyze the website and extract information
     const systemPrompt = `You are an assistant that analyzes websites and extracts information for ad campaigns.
     Given a website URL, analyze the website content and extract:
     - title: A compelling campaign title (max 60 characters)
@@ -93,12 +98,12 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (error) {
-      // If we can't fetch HTML, we'll rely on OpenAI to suggest a logo URL
+      // If we can't fetch HTML, we'll rely on OpenRouter to suggest a logo URL
       console.log('Could not fetch HTML for logo detection:', error)
     }
 
     // Fetch website content (simplified - in production you might want to use a web scraping service)
-    // For now, we'll ask OpenAI to analyze based on the URL
+    // For now, we'll ask OpenRouter to analyze based on the URL
     const userPrompt = `Analyze this website URL and extract ad campaign information: ${url}
     
     Please provide:
@@ -111,7 +116,7 @@ export async function POST(request: NextRequest) {
     Return the information as a JSON object.`
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -133,7 +138,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Use found logo URL if OpenAI didn't provide one or if OpenAI's is null
+      // Use found logo URL if OpenRouter didn't provide one or if OpenRouter's is null
       const imageUrl = extractedData.image_url || foundLogoUrl || null
 
       return NextResponse.json({
@@ -149,7 +154,7 @@ export async function POST(request: NextRequest) {
         },
       })
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', parseError)
+      console.error('Failed to parse OpenRouter response:', parseError)
       return NextResponse.json(
         { error: 'Failed to parse extracted information' },
         { status: 500 }

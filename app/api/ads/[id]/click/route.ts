@@ -167,8 +167,27 @@ export async function GET(
     // publisher_id is included in the tracking URL from the ads API
     const result = await handleClick(request, campaignId, publisherId || null)
     
-    // Redirect to target URL
-    return NextResponse.redirect(result.target_url, 302)
+    // Add UTM parameters to target URL for attribution
+    try {
+      const targetUrl = new URL(result.target_url)
+      targetUrl.searchParams.set('utm_source', 'vivosadnetwork')
+      targetUrl.searchParams.set('utm_medium', 'chatbot')
+      targetUrl.searchParams.set('utm_campaign', campaignId)
+      if (publisherId) {
+        targetUrl.searchParams.set('utm_content', `publisher_${publisherId}`)
+      }
+      
+      // Redirect to target URL with UTM parameters
+      return NextResponse.redirect(targetUrl.toString(), 302)
+    } catch (urlError) {
+      // If target_url is not a valid URL, try to construct it
+      // If it's already a valid URL but parsing failed, use as-is
+      console.error('Error parsing target URL:', urlError)
+      // Fallback: append UTM params as query string
+      const separator = result.target_url.includes('?') ? '&' : '?'
+      const utmParams = `utm_source=vivosadnetwork&utm_medium=chatbot&utm_campaign=${campaignId}${publisherId ? `&utm_content=publisher_${publisherId}` : ''}`
+      return NextResponse.redirect(`${result.target_url}${separator}${utmParams}`, 302)
+    }
   } catch (error: any) {
     console.error('Error processing click (GET):', error)
     // Redirect to a fallback URL even on error

@@ -17,7 +17,7 @@
 4. **Step 4**: Review and save campaign
 
 ### New API Endpoint:
-- `POST /api/ai/extract-website` - Extracts campaign information from a website URL using OpenAI
+- `POST /api/ai/extract-website` - Extracts campaign information from a website URL using OpenRouter
 
 ## 2. Fixed Supabase Integration
 

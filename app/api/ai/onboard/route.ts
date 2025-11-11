@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'X-Title': 'VivosAdNetwork',
+  },
 })
 
 const SYSTEM_PROMPT = `You are an assistant that helps advertisers create contextual ad campaigns for a chatbot ad network.
@@ -29,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     if (stream) {
       const stream = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
         messages: conversationMessages,
         stream: true,
         temperature: 0.7,
@@ -62,7 +67,7 @@ export async function POST(request: NextRequest) {
       })
     } else {
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
         messages: conversationMessages,
         temperature: 0.7,
         response_format: { type: 'json_object' },
@@ -82,7 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(parsedResponse)
     }
   } catch (error: any) {
-    console.error('OpenAI API error:', error)
+    console.error('OpenRouter API error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to process request' },
       { status: 500 }

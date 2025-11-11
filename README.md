@@ -1,10 +1,10 @@
 # Contextual Ad Network MVP
 
-A full-stack contextual ad-network MVP built with Next.js (App Router), Supabase, OpenAI, and TypeScript.
+A full-stack contextual ad-network MVP built with Next.js (App Router), Supabase, OpenRouter, and TypeScript.
 
 ## Features
 
-- **AI-Powered Advertiser Onboarding**: Chat-style UI that uses OpenAI to help advertisers create campaigns
+- **AI-Powered Advertiser Onboarding**: Chat-style UI that uses OpenRouter to help advertisers create campaigns
 - **Real-Time Ad Auction**: Intelligent ad selection based on keywords, CPC bid, quality score, and relevance
 - **Click Tracking**: Automatic budget deduction and publisher credit on ad clicks
 - **Publisher Dashboard**: Simple interface for publishers to fetch and display ads
@@ -14,7 +14,7 @@ A full-stack contextual ad-network MVP built with Next.js (App Router), Supabase
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, TailwindCSS
 - **Backend**: Next.js API Routes
 - **Database**: Supabase (PostgreSQL)
-- **AI**: OpenAI API (gpt-4o-mini)
+- **AI**: OpenRouter API (supports multiple AI models)
 
 ## Setup Instructions
 
@@ -43,8 +43,10 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-# OpenAI
-OPENAI_API_KEY=your_openai_api_key
+# OpenRouter
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_MODEL=openai/gpt-4o-mini  # Optional: defaults to openai/gpt-4o-mini
+NEXT_PUBLIC_APP_URL=http://localhost:3000  # Optional: for OpenRouter tracking
 ```
 
 You can find these values in your Supabase project settings:
@@ -86,7 +88,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## API Endpoints
 
 ### `POST /api/ai/onboard`
-Handles OpenAI conversation for advertiser onboarding.
+Handles OpenRouter conversation for advertiser onboarding.
 
 **Request Body:**
 ```json
