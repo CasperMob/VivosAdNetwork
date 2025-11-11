@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -33,11 +33,7 @@ export default function OnboardPage() {
   const [success, setSuccess] = useState('')
   const router = useRouter()
 
-  useEffect(() => {
-    checkAuth()
-  }, [])
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -57,7 +53,11 @@ export default function OnboardPage() {
       router.push('/admin')
       return
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
 
   const handleExtractWebsite = async () => {
     if (!websiteUrl.trim()) {
@@ -222,7 +222,7 @@ export default function OnboardPage() {
                }}>
             <h2 className="text-2xl font-semibold mb-4 text-white">Your landing page URL</h2>
             <p className="text-gray-400 mb-6">
-              We'll analyze your website and automatically extract relevant information for your ad campaign.
+              We&apos;ll analyze your website and automatically extract relevant information for your ad campaign.
             </p>
             <div className="space-y-6">
               <div>
@@ -369,7 +369,7 @@ export default function OnboardPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500">
-                    We've automatically detected a logo from your website. You can replace it with a different image URL or leave it empty.
+                    We&apos;ve automatically detected a logo from your website. You can replace it with a different image URL or leave it empty.
                   </p>
                 </div>
               </div>
@@ -416,7 +416,7 @@ export default function OnboardPage() {
                   placeholder="0.50"
                   className="w-full px-4 py-3 bg-[#0F0C29]/50 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500 mt-2">How much you're willing to pay per click</p>
+                <p className="text-xs text-gray-500 mt-2">How much you&apos;re willing to pay per click</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">

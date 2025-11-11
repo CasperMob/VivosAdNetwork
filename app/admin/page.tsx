@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -56,19 +56,7 @@ export default function AdminDashboard() {
   const [success, setSuccess] = useState('')
   const router = useRouter()
 
-  useEffect(() => {
-    checkAuth()
-  }, [])
-
-  useEffect(() => {
-    if (activeTab === 'users') {
-      loadUsers()
-    } else if (activeTab === 'campaigns') {
-      loadCampaigns()
-    }
-  }, [activeTab])
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -89,7 +77,19 @@ export default function AdminDashboard() {
     }
 
     setIsLoading(false)
-  }
+  }, [router])
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      loadUsers()
+    } else if (activeTab === 'campaigns') {
+      loadCampaigns()
+    }
+  }, [activeTab])
 
   const loadUsers = async () => {
     const res = await fetch('/api/admin/users')
@@ -769,7 +769,7 @@ export default function AdminDashboard() {
               <DialogHeader>
                 <DialogTitle>Edit Campaign</DialogTitle>
                 <DialogDescription>
-                  Update campaign details for "{selectedCampaign.title}"
+                  Update campaign details for &quot;{selectedCampaign.title}&quot;
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 max-h-[70vh] overflow-y-auto">

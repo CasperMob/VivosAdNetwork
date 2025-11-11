@@ -44,11 +44,11 @@ export async function GET(request: NextRequest) {
     // Get emails and campaign counts
     const usersWithDetails = await Promise.all(
       (users || []).map(async (u) => {
-        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(u.id)
-        const { count } = await supabaseAdmin
+        const { data: authUser } = supabaseAdmin ? await supabaseAdmin.auth.admin.getUserById(u.id) : { data: null }
+        const { count } = supabaseAdmin ? await supabaseAdmin
           .from('campaigns')
           .select('*', { count: 'exact', head: true })
-          .eq('user_id', u.id)
+          .eq('user_id', u.id) : { count: 0 }
 
         return {
           id: u.id,

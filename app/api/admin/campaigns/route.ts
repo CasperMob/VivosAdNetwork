@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       campaigns.map(async (campaign) => {
         let userEmail = 'N/A'
         
-        if (campaign.user_id) {
+        if (campaign.user_id && supabaseAdmin) {
           try {
             const { data: authUser, error: userError } = await supabaseAdmin.auth.admin.getUserById(campaign.user_id)
             if (!userError && authUser?.user) {
