@@ -37,6 +37,7 @@ export async function GET(
     // Log impression if campaign is active and has budget
     // publisher_id is included in the tracking URL from the ads API
     if (campaign.status === 'active' && campaign.budget_remaining > 0) {
+      // Insert into impressions table
       const { data: impressionData, error: impressionError } = await supabaseAdmin
         .from('impressions')
         .insert({
@@ -64,6 +65,25 @@ export async function GET(
           campaign_id: campaignId,
           publisher_id: publisherId,
         })
+
+        // Update the impressions count in the campaigns table
+        // Fetch current count and increment
+        const { data: currentCampaign } = await supabaseAdmin
+          .from('campaigns')
+          .select('impressions')
+          .eq('id', campaignId)
+          .single()
+
+        if (currentCampaign) {
+          const { error: updateError } = await supabaseAdmin
+            .from('campaigns')
+            .update({ impressions: (currentCampaign.impressions || 0) + 1 })
+            .eq('id', campaignId)
+
+          if (updateError) {
+            console.error('Error updating campaign impressions count:', updateError)
+          }
+        }
       }
     }
 

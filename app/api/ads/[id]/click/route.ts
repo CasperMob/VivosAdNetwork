@@ -64,15 +64,36 @@ async function handleClick(
       })
     }
 
-    // 2. Deduct CPC bid from campaign budget
+    // 2. Deduct CPC bid from campaign budget and update clicks/spend
     const newBudgetRemaining = budgetRemaining - cpcBid
+    
+    // Fetch current clicks and spend to increment
+    const { data: currentCampaign, error: fetchError } = await supabaseAdmin
+      .from('campaigns')
+      .select('clicks, spend')
+      .eq('id', campaignId)
+      .single()
+
+    if (fetchError) {
+      console.error('Error fetching campaign for update:', fetchError)
+    }
+
+    const currentClicks = currentCampaign?.clicks || 0
+    const currentSpend = Number(currentCampaign?.spend || 0)
+    const newClicks = currentClicks + 1
+    const newSpend = currentSpend + cpcBid
+
     const { error: budgetError } = await supabaseAdmin
       .from('campaigns')
-      .update({ budget_remaining: newBudgetRemaining })
+      .update({ 
+        budget_remaining: newBudgetRemaining,
+        clicks: newClicks,
+        spend: newSpend
+      })
       .eq('id', campaignId)
 
     if (budgetError) {
-      console.error('Error updating budget:', budgetError)
+      console.error('Error updating budget/clicks/spend:', budgetError)
       throw new Error('Failed to update budget')
     }
 

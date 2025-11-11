@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const keywordsParam = searchParams.get('keywords') || searchParams.get('keyword')
     const publisherKey = searchParams.get('publisher_key') || request.headers.get('x-publisher-key')
+    const nocache = searchParams.get('nocache') || searchParams.get('refresh') // Force refresh cache
 
     if (!keywordsParam) {
       return NextResponse.json(
@@ -56,13 +57,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch all active campaigns with remaining budget
-    // We'll filter for keyword matches in JavaScript to support partial matching
-    const { data: allCampaigns, error } = await supabaseAdmin
+    // Fetch ALL campaigns from database in real-time (no filtering at query level)
+    // We'll filter for active status, budget, and keyword matches in JavaScript
+    const { data: allCampaignsRaw, error } = await supabaseAdmin
       .from('campaigns')
       .select('*')
-      .eq('status', 'active')
-      .gt('budget_remaining', 0)
+      .order('created_at', { ascending: false })
 
     if (error) {
       console.error('Supabase error:', error)
@@ -72,7 +72,52 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Debug: Log ALL campaigns fetched from database (before filtering)
+    console.log('ALL campaigns fetched from database (raw):', {
+      total: allCampaignsRaw?.length || 0,
+      campaigns: allCampaignsRaw?.map(c => ({
+        id: c.id,
+        title: c.title,
+        keywords: c.keywords,
+        status: c.status,
+        budget_remaining: c.budget_remaining,
+      })) || [],
+    })
+
+    // Filter for active campaigns with budget in JavaScript
+    // This ensures we see ALL campaigns and can debug why some are excluded
+    const allCampaigns = (allCampaignsRaw || []).filter((campaign) => {
+      const isActive = campaign.status === 'active'
+      const hasBudget = Number(campaign.budget_remaining) > 0
+      
+      if (!isActive || !hasBudget) {
+        console.log('Campaign excluded from query:', {
+          id: campaign.id,
+          title: campaign.title,
+          status: campaign.status,
+          budget_remaining: campaign.budget_remaining,
+          reason: !isActive ? 'not active' : 'no budget',
+        })
+        return false
+      }
+      return true
+    })
+
+    // Debug: Log filtered campaigns
+    console.log('Active campaigns with budget (after filtering):', {
+      total: allCampaigns.length,
+      searchKeywords: keywords,
+      campaigns: allCampaigns.map(c => ({
+        id: c.id,
+        title: c.title,
+        keywords: c.keywords,
+        status: c.status,
+        budget_remaining: c.budget_remaining,
+      })),
+    })
+
     if (!allCampaigns || allCampaigns.length === 0) {
+      console.log('No active campaigns with budget found in database')
       return NextResponse.json({ ads: [] })
     }
 
@@ -80,11 +125,29 @@ export async function GET(request: NextRequest) {
     // Support partial matching: "car" matches "car", "cars", "car marketplace", etc.
     // Also check campaign title and message for broader matching
     const matchingCampaigns = allCampaigns.filter((campaign) => {
-      if (!campaign.keywords || !Array.isArray(campaign.keywords)) {
-        return false
+      // Handle case where keywords might be null or not an array
+      if (!campaign.keywords) {
+        // If no keywords, still check title and message
+        const campaignTitleLower = (campaign.title || '').toLowerCase()
+        const campaignMessageLower = (campaign.message || '').toLowerCase()
+        return keywords.some((searchKeyword) => {
+          return campaignTitleLower.includes(searchKeyword) || campaignMessageLower.includes(searchKeyword)
+        })
       }
 
-      const campaignKeywordsLower = campaign.keywords.map((k: string) => k.toLowerCase())
+      if (!Array.isArray(campaign.keywords)) {
+        // If keywords is a string, convert to array
+        const keywordsStr = String(campaign.keywords).toLowerCase()
+        const campaignTitleLower = (campaign.title || '').toLowerCase()
+        const campaignMessageLower = (campaign.message || '').toLowerCase()
+        return keywords.some((searchKeyword) => {
+          return keywordsStr.includes(searchKeyword) || 
+                 campaignTitleLower.includes(searchKeyword) || 
+                 campaignMessageLower.includes(searchKeyword)
+        })
+      }
+
+      const campaignKeywordsLower = campaign.keywords.map((k: string) => String(k).toLowerCase())
       const campaignTitleLower = (campaign.title || '').toLowerCase()
       const campaignMessageLower = (campaign.message || '').toLowerCase()
       
@@ -114,6 +177,7 @@ export async function GET(request: NextRequest) {
 
         // Also check if keyword appears in title or message (broader matching)
         // This helps match "watches" with campaigns about "tissot" watches
+        // or "zara" with "Zara" in the title
         if (campaignTitleLower.includes(searchKeyword) || campaignMessageLower.includes(searchKeyword)) {
           return true
         }
@@ -122,18 +186,24 @@ export async function GET(request: NextRequest) {
       })
     })
 
-    // Debug logging (remove in production if needed)
+    // Debug: Log matching results
+    console.log('Matching campaigns:', {
+      searchKeywords: keywords,
+      totalCampaigns: allCampaigns.length,
+      matchingCount: matchingCampaigns.length,
+      matchedCampaigns: matchingCampaigns.map(c => ({
+        id: c.id,
+        title: c.title,
+        keywords: c.keywords,
+      })),
+    })
+
     if (matchingCampaigns.length === 0) {
-      console.log('No matching campaigns found', {
+      console.log('No matching campaigns found after filtering', {
         searchKeywords: keywords,
         totalCampaigns: allCampaigns.length,
-        sampleCampaign: allCampaigns[0] ? {
-          id: allCampaigns[0].id,
-          title: allCampaigns[0].title,
-          keywords: allCampaigns[0].keywords,
-          status: allCampaigns[0].status,
-          budget_remaining: allCampaigns[0].budget_remaining,
-        } : null,
+        allCampaignTitles: allCampaigns.map(c => c.title),
+        allCampaignKeywords: allCampaigns.map(c => c.keywords),
       })
       return NextResponse.json({ ads: [] })
     }
@@ -171,9 +241,24 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ads: ads,
+      timestamp: new Date().toISOString(), // Include timestamp to help with cache busting
     })
+
+    // Set cache control headers to prevent caching
+    // Use aggressive no-cache headers
+    const cacheControl = nocache 
+      ? 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0'
+      : 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
+    
+    response.headers.set('Cache-Control', cacheControl)
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('Last-Modified', new Date().toUTCString())
+
+    return response
   } catch (error: any) {
     console.error('Error fetching ad:', error)
     return NextResponse.json(

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 const campaignSchema = z.object({
-  advertiser_id: z.string().uuid(),
   title: z.string().min(1),
   message: z.string().min(1),
   image_url: z.string().url().optional().nullable(),
@@ -16,12 +16,21 @@ const campaignSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Get authenticated user
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const validatedData = campaignSchema.parse(body)
 
     // Set budget_remaining to budget_total initially
     const campaignData = {
       ...validatedData,
+      user_id: user.id,
       budget_remaining: validatedData.budget_total,
       status: 'active' as const,
     }
@@ -84,6 +93,21 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Get authenticated user
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check user role
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
     if (!supabaseAdmin) {
       return NextResponse.json(
         { error: 'Database connection not configured' },
@@ -91,13 +115,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const advertiserId = searchParams.get('advertiser_id')
-
     let query = supabaseAdmin.from('campaigns').select('*')
 
-    if (advertiserId) {
-      query = query.eq('advertiser_id', advertiserId)
+    // If not admin, only show their own campaigns
+    if (userData?.role !== 'admin') {
+      query = query.eq('user_id', user.id)
     }
 
     const { data, error } = await query.order('created_at', { ascending: false })

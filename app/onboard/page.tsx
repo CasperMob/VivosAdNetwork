@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 interface CampaignData {
   title?: string
@@ -29,8 +31,33 @@ export default function OnboardPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [advertiserEmail, setAdvertiserEmail] = useState('')
-  const [advertiserName, setAdvertiserName] = useState('')
+  const router = useRouter()
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  const checkAuth = async () => {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      router.push('/signin?redirect=/onboard')
+      return
+    }
+
+    // Check if user is advertiser
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (userData?.role !== 'advertiser') {
+      router.push('/admin')
+      return
+    }
+  }
 
   const handleExtractWebsite = async () => {
     if (!websiteUrl.trim()) {
@@ -128,11 +155,6 @@ export default function OnboardPage() {
   }
 
   const handleSaveCampaign = async () => {
-    if (!advertiserEmail.trim() || !advertiserName.trim()) {
-      setError('Please enter your name and email')
-      return
-    }
-
     if (!campaignData) {
       setError('Campaign data is missing')
       return
@@ -144,34 +166,11 @@ export default function OnboardPage() {
     setStep('saving')
 
     try {
-      // First, get or create advertiser
-      const advertiserRes = await fetch('/api/advertisers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: advertiserEmail,
-          name: advertiserName,
-        }),
-      })
-
-      if (!advertiserRes.ok) {
-        const data = await advertiserRes.json()
-        throw new Error(data.error || 'Failed to create advertiser')
-      }
-
-      const advertiserData = await advertiserRes.json()
-      const advertiserId = advertiserData.advertiser?.id
-
-      if (!advertiserId) {
-        throw new Error('Failed to get advertiser ID')
-      }
-
-      // Create campaign
+      // Create campaign (user_id will be set by API from auth token)
       const campaignRes = await fetch('/api/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          advertiser_id: advertiserId,
           title: campaignData.title || 'Untitled Campaign',
           message: campaignData.message || '',
           image_url: campaignData.image_url || null,
@@ -195,30 +194,16 @@ export default function OnboardPage() {
         throw new Error('Campaign created but no ID returned')
       }
 
-      setSuccess(`Campaign created successfully! Campaign ID: ${result.campaign.id}`)
+      setSuccess(`Campaign created successfully! Redirecting to analytics...`)
       
-      // Reset form after 3 seconds
+      // Redirect to analytics after 2 seconds
       setTimeout(() => {
-        setStep('url')
-        setWebsiteUrl('')
-        setKeywordsInput('')
-        setCampaignData(null)
-        setEditableTitle('')
-        setEditableMessage('')
-        setEditableKeywords('')
-        setEditableTargetUrl('')
-        setEditableImageUrl('')
-        setCpcBid('')
-        setBudget('')
-        setAdvertiserEmail('')
-        setAdvertiserName('')
-        setSuccess('')
-      }, 3000)
+        router.push('/analytics')
+      }, 2000)
     } catch (err: any) {
       console.error('Error saving campaign:', err)
       setError(err.message || 'Failed to save campaign. Please check your Supabase configuration.')
       setStep('review')
-    } finally {
       setIsLoading(false)
     }
   }
@@ -504,30 +489,6 @@ export default function OnboardPage() {
               </div>
             </div>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={advertiserName}
-                  onChange={(e) => setAdvertiserName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full px-4 py-3 bg-[#0F0C29]/50 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Your Email
-                </label>
-                <input
-                  type="email"
-                  value={advertiserEmail}
-                  onChange={(e) => setAdvertiserEmail(e.target.value)}
-                  placeholder="john@example.com"
-                  className="w-full px-4 py-3 bg-[#0F0C29]/50 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => {

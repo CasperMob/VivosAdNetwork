@@ -8,28 +8,38 @@
     "start": "next start",
     "lint": "next lint",
     "setup-db": "node scripts/setup-database.js",
-    "setup-db-auto": "node scripts/setup-database-auto.js"
+    "setup-db-auto": "node scripts/setup-database-auto.js",
+    "setup-admin": "tsx scripts/setup-admin.ts"
   },
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/auth-helpers-react": "^0.5.0",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.553.0",
     "next": "^14.2.0",
+    "openai": "^4.24.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "@supabase/supabase-js": "^2.38.0",
-    "openai": "^4.24.0",
+    "recharts": "^3.4.1",
+    "tailwind-merge": "^3.4.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/pg": "^8.10.9",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "typescript": "^5.3.0",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.0",
     "autoprefixer": "^10.4.0",
+    "dotenv": "^17.2.3",
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.2.0",
     "pg": "^8.11.3",
-    "@types/pg": "^8.10.9"
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.3.0"
   }
 }
-

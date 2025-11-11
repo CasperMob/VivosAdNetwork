@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Advertiser Onboard - Contextual Ad Network',
-  description: 'AI-powered contextual ad network MVP',
+  title: 'Redefining Ads - AI-Powered Contextual Ad Network',
+  description: 'Redefining Ads - The future of contextual advertising with AI-powered campaign creation and real-time analytics',
 }
 
 export default function RootLayout({
@@ -20,6 +20,8 @@ export default function RootLayout({
     </html>
   )
 }
+
+
 
 
 
