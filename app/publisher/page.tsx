@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from 'react'
 
+const API_HOST = 'https://vivos-ad-network.vercel.app'
+
 export default function PublisherPage() {
   const [keyword, setKeyword] = useState('')
   const [publisherId, setPublisherId] = useState('')
   const [publisherName, setPublisherName] = useState('')
   const [ad, setAd] = useState<any>(null)
   const [apiResponse, setApiResponse] = useState<any>(null)
+  const [apiEndpoint, setApiEndpoint] = useState<string>('')
+  const [copied, setCopied] = useState(false)
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null)
   const [showResponse, setShowResponse] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -73,12 +78,14 @@ export default function PublisherPage() {
     setError('')
     setAd(null)
     setApiResponse(null)
+    setApiEndpoint('')
     setShowResponse(false)
+    
+    const endpoint = `/api/ads?keyword=${encodeURIComponent(keyword)}&publisher_id=${encodeURIComponent(publisherId)}`
+    setApiEndpoint(endpoint)
 
     try {
-      const response = await fetch(
-        `/api/ads?keyword=${encodeURIComponent(keyword)}&publisher_id=${encodeURIComponent(publisherId)}`
-      )
+      const response = await fetch(endpoint)
 
       const data = await response.json()
 
@@ -116,6 +123,43 @@ export default function PublisherPage() {
     } catch (err: any) {
       alert(`Error: ${err.message}`)
     }
+  }
+
+  const copyToClipboard = async () => {
+    if (!apiEndpoint) return
+    
+    const fullUrl = `${API_HOST}${apiEndpoint}`
+    try {
+      await navigator.clipboard.writeText(fullUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  const copySnippet = async (code: string, snippetId: string) => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedSnippet(snippetId)
+      setTimeout(() => setCopiedSnippet(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  const highlightJSON = (json: string): string => {
+    return json
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/("(?:[^"\\]|\\.)*")\s*:/g, '<span class="text-cyan-400">$1</span>:')
+      .replace(/:\s*("(?:[^"\\]|\\.)*")/g, ': <span class="text-green-400">$1</span>')
+      .replace(/:\s*(\d+\.?\d*)/g, ': <span class="text-yellow-400">$1</span>')
+      .replace(/:\s*(true|false|null)/g, ': <span class="text-purple-400">$1</span>')
+      .replace(/(\{|\})/g, '<span class="text-gray-400">$1</span>')
+      .replace(/(\[|\])/g, '<span class="text-blue-400">$1</span>')
+      .replace(/(,)/g, '<span class="text-gray-500">$1</span>')
   }
 
   return (
@@ -220,7 +264,7 @@ export default function PublisherPage() {
         )}
 
         {ad && (
-          <div className="bg-[#1A1A2E]/80 backdrop-blur-xl border border-purple-500/30 rounded-2xl shadow-2xl p-6">
+          <div className="bg-[#1A1A2E]/80 backdrop-blur-xl border border-purple-500/30 rounded-2xl shadow-2xl p-6 mb-6">
             <h2 className="text-xl font-semibold text-white mb-4">Ad Result</h2>
             <div className="space-y-4">
               <div>
@@ -249,8 +293,59 @@ export default function PublisherPage() {
           </div>
         )}
 
+        {apiEndpoint && (
+          <div className="bg-[#1A1A2E]/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl shadow-2xl p-6 mb-6">
+            <h2 className="text-xl font-semibold text-white mb-4">API Endpoint</h2>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-400 mb-2">Endpoint called to fetch the ad:</p>
+              <div 
+                onClick={copyToClipboard}
+                className="bg-[#0F0C29]/80 border border-gray-700 rounded-lg p-4 cursor-pointer hover:border-blue-500/50 transition-all group relative"
+              >
+                <code className="text-sm font-mono break-all flex items-center gap-2 flex-wrap">
+                  <span className="text-purple-400 font-semibold">GET</span>
+                  <span className="text-blue-400">https://</span>
+                  <span className="text-green-400">vivos-ad-network.vercel.app</span>
+                  <span className="text-yellow-400">{apiEndpoint.split('?')[0]}</span>
+                  {apiEndpoint.includes('?') && (
+                    <>
+                      <span className="text-gray-500">?</span>
+                      {apiEndpoint.split('?')[1].split('&').map((param, idx) => {
+                        const [key, value] = param.split('=')
+                        return (
+                          <span key={idx}>
+                            {idx > 0 && <span className="text-gray-500">&</span>}
+                            <span className="text-cyan-400">{key}</span>
+                            <span className="text-gray-500">=</span>
+                            <span className="text-orange-400">{decodeURIComponent(value || '')}</span>
+                          </span>
+                        )
+                      })}
+                    </>
+                  )}
+                  {copied ? (
+                    <span className="text-green-400 text-xs font-semibold flex items-center gap-1 ml-auto">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied!
+                    </span>
+                  ) : (
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ml-auto text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </code>
+                <div className="absolute top-2 right-2 text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+                  Click to copy
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {apiResponse && (
-          <div className="bg-[#1A1A2E]/80 backdrop-blur-xl border border-purple-500/30 rounded-2xl shadow-2xl p-6">
+          <div className="bg-[#1A1A2E]/80 backdrop-blur-xl border border-purple-500/30 rounded-2xl shadow-2xl p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">API Response</h2>
               <button
@@ -276,11 +371,202 @@ export default function PublisherPage() {
             </div>
             {showResponse && (
               <div className="mt-4">
-                <pre className="bg-[#0F0C29]/80 border border-gray-700 rounded-lg p-4 overflow-x-auto text-sm text-gray-300 font-mono">
-                  {JSON.stringify(apiResponse, null, 2)}
-                </pre>
+                <div 
+                  onClick={() => {
+                    const code = JSON.stringify(apiResponse, null, 2)
+                    copySnippet(code, 'apiResponse')
+                  }}
+                  className="bg-[#0F0C29]/80 border border-gray-700 rounded-lg p-4 overflow-x-auto cursor-pointer hover:border-purple-500/50 transition-all group relative"
+                >
+                  <pre className="text-sm font-mono">
+                    <code dangerouslySetInnerHTML={{
+                      __html: highlightJSON(JSON.stringify(apiResponse, null, 2))
+                    }} />
+                  </pre>
+                  {copiedSnippet === 'apiResponse' ? (
+                    <div className="absolute top-2 right-2 text-green-400 text-xs font-semibold flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied!
+                    </div>
+                  ) : (
+                    <div className="absolute top-2 right-2 text-xs text-gray-500 group-hover:text-gray-400 transition-colors flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Click to copy
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+          </div>
+        )}
+
+        {false && ad && publisherId && (
+          <div className="bg-[#1A1A2E]/80 backdrop-blur-xl border border-green-500/30 rounded-2xl shadow-2xl p-6 mb-6">
+            <h2 className="text-xl font-semibold text-white mb-4">SDK Integration</h2>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-400">
+                Integrate the Vivos Ad Network SDK into your publisher project:
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 mb-2">1. Install the SDK</h3>
+                  <div 
+                    onClick={() => copySnippet('npm install @vivos-ad-network/sdk', 'install')}
+                    className="bg-[#0F0C29]/80 border border-gray-700 rounded-lg p-4 cursor-pointer hover:border-green-500/50 transition-all group relative"
+                  >
+                    <code className="text-sm text-green-300 font-mono flex items-center gap-2">
+                      <span className="text-green-400">npm</span> <span className="text-blue-400">install</span> <span className="text-purple-400">@vivos-ad-network/sdk</span>
+                      {copiedSnippet === 'install' ? (
+                        <span className="text-green-400 text-xs font-semibold flex items-center gap-1 ml-auto">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Copied!
+                        </span>
+                      ) : (
+                        <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ml-auto text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </code>
+                    <div className="absolute top-2 right-2 text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+                      Click to copy
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 mb-2">2. Use in your React component</h3>
+                  <div 
+                    onClick={() => {
+                      const code = `import { useAd } from '@vivos-ad-network/sdk'
+
+function MyComponent() {
+  const { ad, loading, error } = useAd({
+    publisherId: '${publisherId}',
+    keywords: ['${keyword}']
+  })
+
+  if (loading) return <div>Loading ad...</div>
+  if (error) return <div>Error: {error}</div>
+  if (!ad) return null
+
+  return (
+    <div>
+      <h3>{ad.title}</h3>
+      <p>{ad.message}</p>
+      {ad.image_url && (
+        <img src={ad.image_url} alt={ad.title} />
+      )}
+      <a href={ad.target_url} target="_blank">
+        Visit Ad
+      </a>
+    </div>
+  )
+}`
+                      copySnippet(code, 'useAd')
+                    }}
+                    className="bg-[#0F0C29]/80 border border-gray-700 rounded-lg p-4 overflow-x-auto cursor-pointer hover:border-green-500/50 transition-all group relative"
+                  >
+                    <pre className="text-xs font-mono">
+                      <code className="text-gray-300">
+                        <span className="text-purple-400">import</span> <span className="text-yellow-400">{'{'}</span> <span className="text-blue-400">useAd</span> <span className="text-yellow-400">{'}'}</span> <span className="text-purple-400">from</span> <span className="text-green-400">'@vivos-ad-network/sdk'</span>{'\n\n'}
+                        <span className="text-purple-400">function</span> <span className="text-blue-400">MyComponent</span><span className="text-pink-400">()</span> <span className="text-yellow-400">{'{'}</span>{'\n'}
+                        {'  '}<span className="text-purple-400">const</span> <span className="text-yellow-400">{'{'}</span> <span className="text-gray-300">ad, loading, error</span> <span className="text-yellow-400">{'}'}</span> <span className="text-purple-400">=</span> <span className="text-blue-400">useAd</span><span className="text-pink-400">(</span><span className="text-yellow-400">{'{'}</span>{'\n'}
+                        {'    '}<span className="text-gray-300">publisherId:</span> <span className="text-green-400">'{publisherId}'</span>,{'\n'}
+                        {'    '}<span className="text-gray-300">keywords:</span> <span className="text-yellow-400">[</span><span className="text-green-400">'{keyword}'</span><span className="text-yellow-400">]</span>{'\n'}
+                        {'  '}<span className="text-yellow-400">{'}'}</span><span className="text-pink-400">)</span>{'\n\n'}
+                        {'  '}<span className="text-purple-400">if</span> <span className="text-pink-400">(</span><span className="text-gray-300">loading</span><span className="text-pink-400">)</span> <span className="text-purple-400">return</span> <span className="text-yellow-400">&lt;</span><span className="text-blue-400">div</span><span className="text-yellow-400">&gt;</span><span className="text-gray-300">Loading ad...</span><span className="text-yellow-400">&lt;/</span><span className="text-blue-400">div</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'  '}<span className="text-purple-400">if</span> <span className="text-pink-400">(</span><span className="text-gray-300">error</span><span className="text-pink-400">)</span> <span className="text-purple-400">return</span> <span className="text-yellow-400">&lt;</span><span className="text-blue-400">div</span><span className="text-yellow-400">&gt;</span><span className="text-gray-300">Error: </span><span className="text-yellow-400">{'{'}</span><span className="text-gray-300">error</span><span className="text-yellow-400">{'}'}</span><span className="text-yellow-400">&lt;/</span><span className="text-blue-400">div</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'  '}<span className="text-purple-400">if</span> <span className="text-pink-400">(!</span><span className="text-gray-300">ad</span><span className="text-pink-400">)</span> <span className="text-purple-400">return</span> <span className="text-purple-400">null</span>{'\n\n'}
+                        {'  '}<span className="text-purple-400">return</span> <span className="text-pink-400">(</span>{'\n'}
+                        {'    '}<span className="text-yellow-400">&lt;</span><span className="text-blue-400">div</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'      '}<span className="text-yellow-400">&lt;</span><span className="text-blue-400">h3</span><span className="text-yellow-400">&gt;{'{'}</span><span className="text-gray-300">ad.title</span><span className="text-yellow-400">{'}'}</span><span className="text-yellow-400">&lt;/</span><span className="text-blue-400">h3</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'      '}<span className="text-yellow-400">&lt;</span><span className="text-blue-400">p</span><span className="text-yellow-400">&gt;{'{'}</span><span className="text-gray-300">ad.message</span><span className="text-yellow-400">{'}'}</span><span className="text-yellow-400">&lt;/</span><span className="text-blue-400">p</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'      '}<span className="text-purple-400">if</span> <span className="text-pink-400">(</span><span className="text-gray-300">ad.image_url</span><span className="text-pink-400">)</span> <span className="text-pink-400">(</span>{'\n'}
+                        {'        '}<span className="text-yellow-400">&lt;</span><span className="text-blue-400">img</span> <span className="text-gray-300">src=</span><span className="text-yellow-400">{'{'}</span><span className="text-gray-300">ad.image_url</span><span className="text-yellow-400">{'}'}</span> <span className="text-gray-300">alt=</span><span className="text-green-400">"{'{'}"</span><span className="text-gray-300">ad.title</span><span className="text-green-400">"{'}'}"</span> <span className="text-yellow-400">/&gt;</span>{'\n'}
+                        {'      '}<span className="text-pink-400">)</span>{'\n'}
+                        {'      '}<span className="text-yellow-400">&lt;</span><span className="text-blue-400">a</span> <span className="text-gray-300">href=</span><span className="text-yellow-400">{'{'}</span><span className="text-gray-300">ad.target_url</span><span className="text-yellow-400">{'}'}</span> <span className="text-gray-300">target=</span><span className="text-green-400">"_blank"</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'        '}<span className="text-gray-300">Visit Ad</span>{'\n'}
+                        {'      '}<span className="text-yellow-400">&lt;/</span><span className="text-blue-400">a</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'    '}<span className="text-yellow-400">&lt;/</span><span className="text-blue-400">div</span><span className="text-yellow-400">&gt;</span>{'\n'}
+                        {'  '}<span className="text-pink-400">)</span>{'\n'}
+                        <span className="text-yellow-400">{'}'}</span>
+                      </code>
+                    </pre>
+                    {copiedSnippet === 'useAd' ? (
+                      <div className="absolute top-2 right-2 text-green-400 text-xs font-semibold flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied!
+                      </div>
+                    ) : (
+                      <div className="absolute top-2 right-2 text-xs text-gray-500 group-hover:text-gray-400 transition-colors flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Click to copy
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 mb-2">3. Or use the AdBanner component</h3>
+                  <div 
+                    onClick={() => {
+                      const code = `import { AdBanner } from '@vivos-ad-network/sdk'
+
+function MyPage() {
+  return (
+    <AdBanner
+      publisherId="${publisherId}"
+      keywords={['${keyword}']}
+    />
+  )
+}`
+                      copySnippet(code, 'adBanner')
+                    }}
+                    className="bg-[#0F0C29]/80 border border-gray-700 rounded-lg p-4 overflow-x-auto cursor-pointer hover:border-green-500/50 transition-all group relative"
+                  >
+                    <pre className="text-xs font-mono">
+                      <code className="text-gray-300">
+                        <span className="text-purple-400">import</span> <span className="text-yellow-400">{'{'}</span> <span className="text-blue-400">AdBanner</span> <span className="text-yellow-400">{'}'}</span> <span className="text-purple-400">from</span> <span className="text-green-400">'@vivos-ad-network/sdk'</span>{'\n\n'}
+                        <span className="text-purple-400">function</span> <span className="text-blue-400">MyPage</span><span className="text-pink-400">()</span> <span className="text-yellow-400">{'{'}</span>{'\n'}
+                        {'  '}<span className="text-purple-400">return</span> <span className="text-pink-400">(</span>{'\n'}
+                        {'    '}<span className="text-yellow-400">&lt;</span><span className="text-blue-400">AdBanner</span>{'\n'}
+                        {'      '}<span className="text-gray-300">publisherId=</span><span className="text-green-400">"{publisherId}"</span>{'\n'}
+                        {'      '}<span className="text-gray-300">keywords=</span><span className="text-yellow-400">{'['}</span><span className="text-green-400">'{keyword}'</span><span className="text-yellow-400">{']'}</span>{'\n'}
+                        {'    '}<span className="text-yellow-400">/&gt;</span>{'\n'}
+                        {'  '}<span className="text-pink-400">)</span>{'\n'}
+                        <span className="text-yellow-400">{'}'}</span>
+                      </code>
+                    </pre>
+                    {copiedSnippet === 'adBanner' ? (
+                      <div className="absolute top-2 right-2 text-green-400 text-xs font-semibold flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied!
+                      </div>
+                    ) : (
+                      <div className="absolute top-2 right-2 text-xs text-gray-500 group-hover:text-gray-400 transition-colors flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Click to copy
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
