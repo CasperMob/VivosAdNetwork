@@ -1,0 +1,10 @@
+src/
+tsconfig.json
+*.ts
+*.tsx
+!*.d.ts
+examples/
+node_modules/
+.gitignore
+README.md
+
