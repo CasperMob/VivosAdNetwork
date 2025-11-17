@@ -90,10 +90,16 @@ export async function GET(request: NextRequest) {
 
     // Format ads for response with tracking URLs
     const ads = filteredCampaigns.map((campaign) => {
-      // Create tracking URLs with publisher_id if available
+      // Note: For /all endpoint, we don't have a specific search keyword
+      // So we'll use the first campaign keyword or null
+      const matchedKeyword = campaign.keywords && Array.isArray(campaign.keywords) && campaign.keywords.length > 0
+        ? campaign.keywords[0]
+        : null
+
+      // Create tracking URLs with publisher_id and matched keyword if available
       const impressionUrl = publisherId 
-        ? `${baseUrl}/api/ads/${campaign.id}/impression?publisher_id=${publisherId}`
-        : `${baseUrl}/api/ads/${campaign.id}/impression`
+        ? `${baseUrl}/api/ads/${campaign.id}/impression?publisher_id=${publisherId}${matchedKeyword ? `&keyword=${encodeURIComponent(matchedKeyword)}` : ''}`
+        : `${baseUrl}/api/ads/${campaign.id}/impression${matchedKeyword ? `?keyword=${encodeURIComponent(matchedKeyword)}` : ''}`
       const clickUrl = publisherId
         ? `${baseUrl}/api/ads/${campaign.id}/click?publisher_id=${publisherId}`
         : `${baseUrl}/api/ads/${campaign.id}/click`
@@ -109,6 +115,7 @@ export async function GET(request: NextRequest) {
         budget_remaining: Number(campaign.budget_remaining),
         status: campaign.status,
         keywords: campaign.keywords,
+        matched_keyword: matchedKeyword,
         // Tracking URLs for chatbot integration
         impression_url: impressionUrl,
         click_url: clickUrl,

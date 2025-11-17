@@ -7,7 +7,9 @@ A full-stack contextual ad-network MVP built with Next.js (App Router), Supabase
 - **AI-Powered Advertiser Onboarding**: Chat-style UI that uses OpenRouter to help advertisers create campaigns
 - **Real-Time Ad Auction**: Intelligent ad selection based on keywords, CPC bid, quality score, and relevance
 - **Click Tracking**: Automatic budget deduction and publisher credit on ad clicks
-- **Publisher Dashboard**: Simple interface for publishers to fetch and display ads
+- **Publisher Dashboard**: Full-featured dashboard for publishers with revenue tracking, integration instructions, and performance analytics
+- **Advertiser Analytics**: Comprehensive analytics dashboard for advertisers to track campaign performance
+- **Role-Based Access**: Separate dashboards for publishers, advertisers, and admins
 
 ## Tech Stack
 
@@ -54,7 +56,35 @@ You can find these values in your Supabase project settings:
 - Anon Key: Settings → API → Project API keys → anon/public
 - Service Role Key: Settings → API → Project API keys → service_role (keep this secret!)
 
-### 4. Run the Development Server
+### 4. Run Database Migrations
+
+After setting up Supabase, run all migrations in order:
+
+1. `001_initial_schema.sql` - Base schema
+2. `002_make_publisher_id_optional.sql` - Publisher fields
+3. `003_auth_and_roles.sql` - Authentication and user roles
+4. `004_fix_advertiser_id_nullable.sql` - Advertiser fixes
+5. `005_waitlist.sql` - Waitlist feature
+6. `006_add_impression_analytics.sql` - Analytics tracking
+7. `007_add_publisher_role.sql` - Publisher role support
+8. `009_reset_user_rls_policies.sql` - Reset and fix RLS policies for all roles
+
+### 5. Create User Accounts
+
+Create admin, advertiser, or publisher accounts using the setup scripts:
+
+```bash
+# Create an admin account
+npm run setup-admin admin@example.com password123
+
+# Create an advertiser account
+npm run setup-advertiser advertiser@example.com password123
+
+# Create a publisher account
+npm run setup-publisher publisher@example.com password123 "Publisher Name"
+```
+
+### 6. Run the Development Server
 
 ```bash
 npm run dev
@@ -62,28 +92,85 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Publisher SDK
+
+We provide an easy-to-use SDK for publishers to integrate ads into their applications.
+
+### Quick Start
+
+```bash
+npm install @vivosadnetwork/sdk
+```
+
+```tsx
+import { ChatbotAd } from '@vivosadnetwork/sdk'
+
+<ChatbotAd
+  publisherId="your-publisher-id"
+  keyword="technology,ai"  // Multiple keywords supported!
+/>
+```
+
+That's it! The SDK handles:
+- ✅ Fetching ads based on keywords (supports comma-separated)
+- ✅ Automatic impression tracking
+- ✅ Automatic click tracking
+- ✅ Device analytics collection
+- ✅ Error handling
+
+**See `IMPLEMENTATION_GUIDE.md` for complete documentation.**
+
 ## Usage
+
+### User Roles & Dashboards
+
+The platform supports three user roles, each with their own dashboard:
+
+#### 1. **Advertisers** (`/analytics`)
+- View campaign performance metrics (impressions, clicks, CTR, spend)
+- Track device and audience analytics
+- Create and edit campaigns
+- Monitor budget usage
+
+#### 2. **Publishers** (`/publisher`)
+- View revenue and earnings
+- Get integration instructions with API endpoints
+- Track campaigns advertised on their platform
+- Monitor placement performance
+- View detailed statistics by keyword/placement
+
+**See `PUBLISHER_DASHBOARD.md` for complete publisher documentation.**
+
+#### 3. **Admins** (`/admin`)
+- Manage all campaigns across the network
+- Access admin debug tools at `/admin/publisher-debug`
+- View system-wide analytics
 
 ### Advertiser Onboarding
 
-1. Navigate to `/onboard`
-2. Start a conversation with the AI assistant
-3. The assistant will guide you through creating a campaign:
+1. Sign in at `/signin` with advertiser credentials
+2. Navigate to `/onboard` to create your first campaign
+3. Chat with the AI assistant to set up:
    - Campaign title
    - Ad message
    - Target URL
    - Keywords
    - CPC bid
    - Total budget
-4. Review and save your campaign
+4. View analytics at `/analytics`
 
-### Publisher Dashboard
+### Publisher Integration
 
-1. Navigate to `/publisher`
-2. Enter your Publisher ID (you'll need to create a publisher in the database first)
-3. Enter a keyword to fetch a relevant ad
-4. The system will run an auction and return the highest-scoring ad
-5. Click the ad link to track clicks and credit the publisher
+1. Sign in at `/signin` with publisher credentials
+2. View your dashboard at `/publisher`
+3. Click "Show Integration" to get:
+   - Your unique Publisher ID
+   - API endpoint for fetching ads
+   - Sample integration code
+4. Integrate the API into your platform
+5. Track earnings and performance in real-time
+
+**Revenue Model**: Publishers earn 70% of CPC for each ad click.
 
 ## API Endpoints
 
@@ -141,6 +228,26 @@ Logs a click and processes payment.
 ```json
 {
   "publisher_id": "uuid"
+}
+```
+
+### `GET /api/publishers/analytics`
+Fetches publisher analytics and revenue data (requires publisher authentication).
+
+**Response:**
+```json
+{
+  "publisher": {
+    "id": "uuid",
+    "name": "Publisher Name",
+    "balance": 150.25
+  },
+  "totalImpressions": 1000,
+  "totalClicks": 50,
+  "totalEarnings": 150.25,
+  "ctr": 5.0,
+  "campaigns": [...],
+  "placements": [...]
 }
 ```
 

@@ -12,6 +12,9 @@ import {
   Line,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -36,6 +39,13 @@ interface Campaign {
   created_at: string
 }
 
+interface DeviceAnalytics {
+  deviceOsBreakdown: { name: string; value: number }[]
+  deviceTypeBreakdown: { name: string; value: number }[]
+  topKeywords: { keyword: string; count: number }[]
+  screenSizeDistribution: { range: string; count: number }[]
+}
+
 export default function AnalyticsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -43,6 +53,12 @@ export default function AnalyticsPage() {
   const [totalClicks, setTotalClicks] = useState(0)
   const [totalSpend, setTotalSpend] = useState(0)
   const [totalCTR, setTotalCTR] = useState(0)
+  const [deviceAnalytics, setDeviceAnalytics] = useState<DeviceAnalytics>({
+    deviceOsBreakdown: [],
+    deviceTypeBreakdown: [],
+    topKeywords: [],
+    screenSizeDistribution: [],
+  })
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
   const [campaignFormData, setCampaignFormData] = useState({
@@ -125,6 +141,101 @@ export default function AnalyticsPage() {
       setIsLoading(false)
     }
   }
+
+  const loadDeviceAnalytics = useCallback(async () => {
+    try {
+      const supabase = createClient()
+      
+      // Only proceed if we have campaigns loaded
+      if (campaigns.length === 0) return
+
+      // Get impressions for user's campaigns
+      // We already have the campaigns from loadCampaigns(), so just use their IDs
+      const campaignIds = campaigns.map(c => c.id)
+      
+      const { data: impressions, error: impressionsError } = await supabase
+        .from('impressions')
+        .select('device_os, device_type, matched_keyword, screen_width, screen_height, campaign_id')
+        .in('campaign_id', campaignIds)
+
+      if (impressionsError) {
+        console.error('Error fetching impressions for analytics:', impressionsError)
+        return
+      }
+
+      if (!impressions || impressions.length === 0) return
+
+      // Process Device OS breakdown
+      const osCount: { [key: string]: number } = {}
+      impressions.forEach(imp => {
+        const os = imp.device_os || 'Unknown'
+        osCount[os] = (osCount[os] || 0) + 1
+      })
+      const deviceOsBreakdown = Object.entries(osCount)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+
+      // Process Device Type breakdown
+      const typeCount: { [key: string]: number } = {}
+      impressions.forEach(imp => {
+        const type = imp.device_type || 'Unknown'
+        typeCount[type] = (typeCount[type] || 0) + 1
+      })
+      const deviceTypeBreakdown = Object.entries(typeCount)
+        .map(([name, value]) => ({ 
+          name: name.charAt(0).toUpperCase() + name.slice(1), 
+          value 
+        }))
+        .sort((a, b) => b.value - a.value)
+
+      // Process Top Keywords
+      const keywordCount: { [key: string]: number } = {}
+      impressions.forEach(imp => {
+        if (imp.matched_keyword) {
+          keywordCount[imp.matched_keyword] = (keywordCount[imp.matched_keyword] || 0) + 1
+        }
+      })
+      const topKeywords = Object.entries(keywordCount)
+        .map(([keyword, count]) => ({ keyword, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10) // Top 10 keywords
+
+      // Process Screen Size Distribution
+      const screenRanges = [
+        { label: 'Small (<768px)', min: 0, max: 767 },
+        { label: 'Medium (768-1023px)', min: 768, max: 1023 },
+        { label: 'Large (1024-1439px)', min: 1024, max: 1439 },
+        { label: 'XL (≥1440px)', min: 1440, max: Infinity },
+      ]
+      const screenCount: { [key: string]: number } = {}
+      impressions.forEach(imp => {
+        if (imp.screen_width) {
+          const range = screenRanges.find(r => imp.screen_width >= r.min && imp.screen_width <= r.max)
+          if (range) {
+            screenCount[range.label] = (screenCount[range.label] || 0) + 1
+          }
+        }
+      })
+      const screenSizeDistribution = Object.entries(screenCount)
+        .map(([range, count]) => ({ range, count }))
+
+      setDeviceAnalytics({
+        deviceOsBreakdown,
+        deviceTypeBreakdown,
+        topKeywords,
+        screenSizeDistribution,
+      })
+    } catch (error) {
+      console.error('Error loading device analytics:', error)
+    }
+  }, [campaigns])
+
+  // Load device analytics when campaigns change
+  useEffect(() => {
+    if (campaigns.length > 0) {
+      loadDeviceAnalytics()
+    }
+  }, [campaigns, loadDeviceAnalytics])
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -337,6 +448,21 @@ export default function AnalyticsPage() {
           </Card>
         </div>
 
+        {/* Device Analytics Section */}
+        {(deviceAnalytics.deviceOsBreakdown.length > 0 || deviceAnalytics.deviceTypeBreakdown.length > 0) && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Device & Audience Analytics
+              </CardTitle>
+              <p className="text-sm text-gray-400">Track device types, operating systems, and user behavior</p>
+            </CardHeader>
+          </Card>
+        )}
+
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card>
@@ -471,6 +597,178 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Device Analytics Charts */}
+        {(deviceAnalytics.deviceOsBreakdown.length > 0 || deviceAnalytics.deviceTypeBreakdown.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Device OS Breakdown */}
+            {deviceAnalytics.deviceOsBreakdown.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Operating Systems
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={deviceAnalytics.deviceOsBreakdown}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {deviceAnalytics.deviceOsBreakdown.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={['#9333EA', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 5]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1A1A2E',
+                          border: '1px solid #6A5ACD',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="mt-4 space-y-2">
+                    {deviceAnalytics.deviceOsBreakdown.map((item, index) => (
+                      <div key={item.name} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: ['#9333EA', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 5] }}
+                          />
+                          <span className="text-gray-300">{item.name}</span>
+                        </div>
+                        <span className="text-white font-medium">{item.value} impressions</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Device Type Breakdown */}
+            {deviceAnalytics.deviceTypeBreakdown.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Device Types
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={deviceAnalytics.deviceTypeBreakdown}>
+                      <defs>
+                        <linearGradient id="deviceTypeGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#A855F7" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.4} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                      <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
+                      <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1A1A2E',
+                          border: '1px solid #A855F7',
+                          borderRadius: '8px',
+                        }}
+                        labelStyle={{ color: '#E5E7EB' }}
+                      />
+                      <Bar dataKey="value" fill="url(#deviceTypeGradient)" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Keywords and Screen Size Analytics */}
+        {(deviceAnalytics.topKeywords.length > 0 || deviceAnalytics.screenSizeDistribution.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Top Keywords */}
+            {deviceAnalytics.topKeywords.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                    </svg>
+                    Top Performing Keywords
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {deviceAnalytics.topKeywords.map((item, index) => (
+                      <div key={item.keyword} className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500/20 text-green-300 font-bold text-sm">
+                            {index + 1}
+                          </div>
+                          <span className="text-gray-200 font-medium">{item.keyword}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-semibold">{item.count}</span>
+                          <span className="text-gray-400 text-sm">impressions</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Screen Size Distribution */}
+            {deviceAnalytics.screenSizeDistribution.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>
+                    Screen Size Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={deviceAnalytics.screenSizeDistribution} layout="vertical">
+                      <defs>
+                        <linearGradient id="screenSizeGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#FBBF24" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.4} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                      <XAxis type="number" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
+                      <YAxis dataKey="range" type="category" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} width={150} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1A1A2E',
+                          border: '1px solid #FBBF24',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Bar dataKey="count" fill="url(#screenSizeGradient)" radius={[0, 8, 8, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Campaigns Table */}
         <Card>

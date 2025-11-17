@@ -220,10 +220,26 @@ export async function GET(request: NextRequest) {
 
     // Format ads for response with tracking URLs
     const ads = matchingCampaigns.map((campaign) => {
-      // Create tracking URLs with publisher_id if available
+      // Find which keyword matched for this campaign
+      let matchedKeyword: string | null = null
+      
+      if (campaign.keywords && Array.isArray(campaign.keywords)) {
+        const campaignKeywordsLower = campaign.keywords.map((k: string) => String(k).toLowerCase())
+        matchedKeyword = keywords.find((searchKeyword) => {
+          return campaignKeywordsLower.some((campaignKeyword: string) => {
+            return campaignKeyword === searchKeyword || 
+                   campaignKeyword.includes(searchKeyword) || 
+                   searchKeyword.includes(campaignKeyword)
+          })
+        }) || keywords[0] // Fallback to first search keyword
+      } else {
+        matchedKeyword = keywords[0] // Use first search keyword as fallback
+      }
+
+      // Create tracking URLs with publisher_id and matched keyword
       const impressionUrl = publisherId 
-        ? `${baseUrl}/api/ads/${campaign.id}/impression?publisher_id=${publisherId}`
-        : `${baseUrl}/api/ads/${campaign.id}/impression`
+        ? `${baseUrl}/api/ads/${campaign.id}/impression?publisher_id=${publisherId}&keyword=${encodeURIComponent(matchedKeyword || '')}`
+        : `${baseUrl}/api/ads/${campaign.id}/impression?keyword=${encodeURIComponent(matchedKeyword || '')}`
       const clickUrl = publisherId
         ? `${baseUrl}/api/ads/${campaign.id}/click?publisher_id=${publisherId}`
         : `${baseUrl}/api/ads/${campaign.id}/click`
@@ -235,6 +251,7 @@ export async function GET(request: NextRequest) {
         image_url: campaign.image_url,
         target_url: campaign.target_url,
         cpc_bid: Number(campaign.cpc_bid),
+        matched_keyword: matchedKeyword, // Include matched keyword in response
         // Tracking URLs for chatbot integration
         impression_url: impressionUrl,
         click_url: clickUrl,

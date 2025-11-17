@@ -39,7 +39,7 @@ function SignInPageContent() {
         // Get user role
         const { data: userData } = await supabase
           .from('users')
-          .select('role')
+          .select('role, publisher_id')
           .eq('id', data.user.id)
           .single()
 
@@ -48,6 +48,8 @@ function SignInPageContent() {
         // Redirect based on role
         if (userRole === 'admin') {
           router.push('/admin')
+        } else if (userRole === 'publisher') {
+          router.push('/publisher')
         } else {
           // Check if advertiser has campaigns
           const { data: campaigns } = await supabase

@@ -10,7 +10,8 @@
     "setup-db": "node scripts/setup-database.js",
     "setup-db-auto": "node scripts/setup-database-auto.js",
     "setup-admin": "tsx scripts/setup-admin.ts",
-    "setup-advertiser": "tsx scripts/setup-advertiser.ts"
+    "setup-advertiser": "tsx scripts/setup-advertiser.ts",
+    "setup-publisher": "tsx scripts/setup-publisher.ts"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
